@@ -1,2 +1,45 @@
+# Specyficzne dla Twojego projektu (zachowane z obecnego pliku)
 gcp_key.json
 llm/gcp_key.json
+
+# IDE (PyCharm, IntelliJ, VS Code)
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Python - pliki tymczasowe i skompilowane
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Środowiska wirtualne
+venv/
+.venv/
+env/
+.env/
+ENV/
+
+# Systemowe
+.DS_Store
+Thumbs.db
+
+# Logi
+*.log
