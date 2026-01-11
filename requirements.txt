@@ -1,0 +1,9 @@
+torch
+transformers
+groq
+google-cloud-speech
+pyaudio
+vosk
+simpleaudio
+TTS
+numpy

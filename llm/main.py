@@ -18,6 +18,10 @@ except ImportError:
     print("[UWAGA] Brak pyaudio lub google-cloud-speech. Tryb głosowy niedostępny.")
 
 # --- KONFIGURACJA HOTELU ---
+# Ustalamy absolutną ścieżkę do bazy danych, aby plik zawsze tworzył się w folderze llm/
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(BASE_DIR, "hotel_aurora.db")
+
 # Słownik pokoi: numer -> (pojemność, cena za dobę w PLN)
 ROOMS = {
     101: {"capacity": 2, "price": 240},  # Pokój 2-osobowy
@@ -31,15 +35,16 @@ ROOMS = {
 
 # --- 1. BAZA DANYCH I DANE STARTOWE ---
 
+
 def init_db():
-    conn = sqlite3.connect('hotel_aurora.db')
+    conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     # Usuwamy starą tabelę (może mieć inny schemat z poprzednich uruchomień)
-    cursor.execute('DROP TABLE IF EXISTS reservations')
+    cursor.execute("DROP TABLE IF EXISTS reservations")
 
     # Tworzymy tabelę od nowa z poprawnym schematem
-    cursor.execute('''
+    cursor.execute("""
                    CREATE TABLE reservations
                    (
                        id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -48,7 +53,7 @@ def init_db():
                        start_date  TEXT,
                        end_date    TEXT
                    )
-                   ''')
+                   """)
 
     # --- SCENARIUSZ UŻYTKOWNIKA ---
     # Pokoje 101, 102 i 201 są zajęte od dzisiaj przez tydzień.
@@ -61,126 +66,176 @@ def init_db():
 
     # Pokój 101 (2-os.) zajęty przez Nowaka
     cursor.execute(
-        'INSERT INTO reservations (room_number, last_name, start_date, end_date) VALUES (?, ?, ?, ?)',
-        (101, "Nowak", today.isoformat(), end_day.isoformat())
+        "INSERT INTO reservations (room_number, last_name, start_date, end_date) VALUES (?, ?, ?, ?)",
+        (101, "Nowak", today.isoformat(), end_day.isoformat()),
     )
 
     # Pokój 102 (2-os.) zajęty przez Kowalskiego
     cursor.execute(
-        'INSERT INTO reservations (room_number, last_name, start_date, end_date) VALUES (?, ?, ?, ?)',
-        (102, "Kowalski", today.isoformat(), end_day.isoformat())
+        "INSERT INTO reservations (room_number, last_name, start_date, end_date) VALUES (?, ?, ?, ?)",
+        (102, "Kowalski", today.isoformat(), end_day.isoformat()),
     )
 
     # Pokój 201 (4-os.) zajęty przez Wiśniewskiego
     cursor.execute(
-        'INSERT INTO reservations (room_number, last_name, start_date, end_date) VALUES (?, ?, ?, ?)',
-        (201, "Wiśniewski", today.isoformat(), end_day.isoformat())
+        "INSERT INTO reservations (room_number, last_name, start_date, end_date) VALUES (?, ?, ?, ?)",
+        (201, "Wiśniewski", today.isoformat(), end_day.isoformat()),
     )
 
     conn.commit()
-    print("[SYSTEM] Baza gotowa. Pokoje 101, 102, 201 są zajęte. Pokoje 103, 104, 202 są wolne.")
+    print(
+        "[SYSTEM] Baza gotowa. Pokoje 101, 102, 201 są zajęte. Pokoje 103, 104, 202 są wolne."
+    )
     conn.close()
 
 
 # --- 2. FUNKCJE (NARZĘDZIA) ---
 
+
 def check_availability(query_date: str, room_type: int = None) -> str:
     """Sprawdza dostępność pokoi w podanym dniu."""
-    with sqlite3.connect('hotel_aurora.db') as conn:
+    with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
 
         # Pokój jest zajęty jeśli: start_date <= query_date < end_date
         # (end_date to dzień wymeldowania - pokój jest już wolny tego dnia)
-        cursor.execute('''
+        cursor.execute(
+            """
                        SELECT room_number
                        FROM reservations
                        WHERE start_date <= ?
                          AND end_date > ?
-                       ''', (query_date, query_date))
+                       """,
+            (query_date, query_date),
+        )
         occupied = {row[0] for row in cursor.fetchall()}
 
         available_rooms = [
-            {"room_number": room, "capacity": info["capacity"], "price_per_night": info["price"]}
+            {
+                "room_number": room,
+                "capacity": info["capacity"],
+                "price_per_night": info["price"],
+            }
             for room, info in ROOMS.items()
-            if room not in occupied and (room_type is None or info["capacity"] == room_type)
+            if room not in occupied
+            and (room_type is None or info["capacity"] == room_type)
         ]
 
-        return json.dumps({
-            "date": query_date,
-            "room_type_filter": room_type,
-            "available_rooms": available_rooms,
-            "total_available": len(available_rooms)
-        }, ensure_ascii=False)
+        return json.dumps(
+            {
+                "date": query_date,
+                "room_type_filter": room_type,
+                "available_rooms": available_rooms,
+                "total_available": len(available_rooms),
+            },
+            ensure_ascii=False,
+        )
 
 
-def make_reservation(start_date: str, end_date: str, last_name: str, room_type: int = 2) -> str:
+def make_reservation(
+    start_date: str, end_date: str, last_name: str, room_type: int = 2
+) -> str:
     """Rezerwuje jeden pokój wybranego typu. Dla wielu pokoi wywołaj wielokrotnie."""
 
     # Walidacja nazwiska - odrzucamy placeholdery i puste wartości
-    invalid_keywords = ["podaj", "proszę", "nazwisko", "unknown", "brak", "?", "nie wiem", "nieznane"]
+    invalid_keywords = [
+        "podaj",
+        "proszę",
+        "nazwisko",
+        "unknown",
+        "brak",
+        "?",
+        "nie wiem",
+        "nieznane",
+    ]
     name_lower = (last_name or "").lower().strip()
 
-    if not name_lower or len(name_lower) < 2 or any(kw in name_lower for kw in invalid_keywords):
-        return json.dumps({
-            "success": False,
-            "error": "Brak nazwiska gościa. Proszę najpierw uzyskać nazwisko od klienta."
-        }, ensure_ascii=False)
+    if (
+        not name_lower
+        or len(name_lower) < 2
+        or any(kw in name_lower for kw in invalid_keywords)
+    ):
+        return json.dumps(
+            {
+                "success": False,
+                "error": "Brak nazwiska gościa. Proszę najpierw uzyskać nazwisko od klienta.",
+            },
+            ensure_ascii=False,
+        )
 
     # Walidacja typu pokoju
     if room_type not in [2, 4]:
-        return json.dumps({
-            "success": False,
-            "error": f"Nieprawidłowy typ pokoju: {room_type}. Dostępne typy: 2 (dwuosobowy) lub 4 (czteroosobowy)."
-        }, ensure_ascii=False)
+        return json.dumps(
+            {
+                "success": False,
+                "error": f"Nieprawidłowy typ pokoju: {room_type}. Dostępne typy: 2 (dwuosobowy) lub 4 (czteroosobowy).",
+            },
+            ensure_ascii=False,
+        )
 
-    with sqlite3.connect('hotel_aurora.db') as conn:
+    with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
 
         # Rezerwacje nachodzą na siebie jeśli: existing_start < new_end AND existing_end > new_start
-        cursor.execute('''
+        cursor.execute(
+            """
                        SELECT DISTINCT room_number
                        FROM reservations
                        WHERE start_date < ?
                          AND end_date > ?
-                       ''', (end_date, start_date))
+                       """,
+            (end_date, start_date),
+        )
         occupied = {row[0] for row in cursor.fetchall()}
 
         # Znajdujemy pierwszy wolny pokój o wybranym typie (dokładna pojemność)
         selected_room = next(
-            (room for room, info in ROOMS.items()
-             if room not in occupied and info["capacity"] == room_type),
-            None
+            (
+                room
+                for room, info in ROOMS.items()
+                if room not in occupied and info["capacity"] == room_type
+            ),
+            None,
         )
 
         if not selected_room:
             room_name = "dwuosobowych" if room_type == 2 else "czteroosobowych"
-            return json.dumps({
-                "success": False,
-                "error": f"Brak wolnych pokoi {room_name} w terminie {start_date} - {end_date}"
-            }, ensure_ascii=False)
+            return json.dumps(
+                {
+                    "success": False,
+                    "error": f"Brak wolnych pokoi {room_name} w terminie {start_date} - {end_date}",
+                },
+                ensure_ascii=False,
+            )
 
         cursor.execute(
-            'INSERT INTO reservations (room_number, last_name, start_date, end_date) VALUES (?, ?, ?, ?)',
-            (selected_room, last_name, start_date, end_date)
+            "INSERT INTO reservations (room_number, last_name, start_date, end_date) VALUES (?, ?, ?, ?)",
+            (selected_room, last_name, start_date, end_date),
         )
 
         # Obliczamy liczbę nocy i całkowitą cenę
         from datetime import datetime
-        nights = (datetime.fromisoformat(end_date) - datetime.fromisoformat(start_date)).days
+
+        nights = (
+            datetime.fromisoformat(end_date) - datetime.fromisoformat(start_date)
+        ).days
         room_info = ROOMS[selected_room]
         total_price = nights * room_info["price"]
 
-        return json.dumps({
-            "success": True,
-            "room_number": selected_room,
-            "capacity": room_info["capacity"],
-            "price_per_night": room_info["price"],
-            "nights": nights,
-            "total_price": total_price,
-            "last_name": last_name,
-            "start_date": start_date,
-            "end_date": end_date
-        }, ensure_ascii=False)
+        return json.dumps(
+            {
+                "success": True,
+                "room_number": selected_room,
+                "capacity": room_info["capacity"],
+                "price_per_night": room_info["price"],
+                "nights": nights,
+                "total_price": total_price,
+                "last_name": last_name,
+                "start_date": start_date,
+                "end_date": end_date,
+            },
+            ensure_ascii=False,
+        )
 
 
 # Mapowanie funkcji po nazwie
@@ -201,16 +256,16 @@ hotel_tools = [
                 "properties": {
                     "query_date": {
                         "type": "string",
-                        "description": "Data w formacie RRRR-MM-DD, np. 2026-01-05"
+                        "description": "Data w formacie RRRR-MM-DD, np. 2026-01-05",
                     },
                     "room_type": {
                         "type": ["integer", "null"],
-                        "description": "Opcjonalny typ pokoju: 2 (dwuosobowy) lub 4 (czteroosobowy). Bez podania zwraca wszystkie."
-                    }
+                        "description": "Opcjonalny typ pokoju: 2 (dwuosobowy) lub 4 (czteroosobowy). Bez podania zwraca wszystkie.",
+                    },
                 },
-                "required": ["query_date"]
-            }
-        }
+                "required": ["query_date"],
+            },
+        },
     },
     {
         "type": "function",
@@ -222,25 +277,25 @@ hotel_tools = [
                 "properties": {
                     "start_date": {
                         "type": "string",
-                        "description": "Data początku rezerwacji w formacie RRRR-MM-DD"
+                        "description": "Data początku rezerwacji w formacie RRRR-MM-DD",
                     },
                     "end_date": {
                         "type": "string",
-                        "description": "Data końca rezerwacji w formacie RRRR-MM-DD"
+                        "description": "Data końca rezerwacji w formacie RRRR-MM-DD",
                     },
                     "last_name": {
                         "type": "string",
-                        "description": "Nazwisko gościa dokonującego rezerwacji"
+                        "description": "Nazwisko gościa dokonującego rezerwacji",
                     },
                     "room_type": {
                         "type": "integer",
-                        "description": "Typ pokoju: 2 (dwuosobowy, 240 PLN/noc) lub 4 (czteroosobowy, 400 PLN/noc)"
-                    }
+                        "description": "Typ pokoju: 2 (dwuosobowy, 240 PLN/noc) lub 4 (czteroosobowy, 400 PLN/noc)",
+                    },
                 },
-                "required": ["start_date", "end_date", "last_name", "room_type"]
-            }
-        }
-    }
+                "required": ["start_date", "end_date", "last_name", "room_type"],
+            },
+        },
+    },
 ]
 
 # --- 3. PROMPT SYSTEMOWY ---
@@ -277,6 +332,7 @@ ZASADY ODPOWIEDZI:
 
 
 # --- 4. ROZPOZNAWANIE MOWY ---
+
 
 def get_voice_input() -> str:
     """Nagrywa głos użytkownika i zwraca rozpoznany tekst.
@@ -323,7 +379,7 @@ def get_voice_input() -> str:
             channels=1,
             rate=RATE,
             input=True,
-            frames_per_buffer=CHUNK
+            frames_per_buffer=CHUNK,
         )
 
         print("\n🎤 Mów teraz... (nagrywanie zakończy się po 3 sek. ciszy)")
@@ -350,7 +406,10 @@ def get_voice_input() -> str:
                 current_time = time.time()
 
                 # Jeśli już zaczął mówić i jest cisza przez SILENCE_DURATION
-                if speech_started and (current_time - last_sound_time) >= SILENCE_DURATION:
+                if (
+                    speech_started
+                    and (current_time - last_sound_time) >= SILENCE_DURATION
+                ):
                     print("   ⏸️  Wykryto pauzę - kończę nagrywanie...")
                     break
 
@@ -373,7 +432,7 @@ def get_voice_input() -> str:
             return ""
 
         # Złącz wszystkie fragmenty audio
-        audio_content = b''.join(audio_frames)
+        audio_content = b"".join(audio_frames)
 
         print("⏳ Rozpoznaję mowę...")
 
@@ -392,7 +451,9 @@ def get_voice_input() -> str:
 
     except FileNotFoundError:
         print("\n❌ BRAK PLIKU gcp_key.json")
-        print("   Aby używać rozpoznawania mowy, potrzebujesz pliku z kluczem Google Cloud.")
+        print(
+            "   Aby używać rozpoznawania mowy, potrzebujesz pliku z kluczem Google Cloud."
+        )
         print("   1. Przejdź do console.cloud.google.com")
         print("   2. Utwórz projekt i włącz Cloud Speech-to-Text API")
         print("   3. Utwórz klucz serwisowy (Service Account) i pobierz jako JSON")
@@ -406,6 +467,7 @@ def get_voice_input() -> str:
 
 # --- 5. GŁÓWNA PĘTLA APLIKACJI ---
 
+
 def reception():
     # Inicjalizacja bazy przy starcie
     init_db()
@@ -417,9 +479,7 @@ def reception():
     MODEL = "llama-3.3-70b-versatile"
 
     # Historia konwersacji
-    messages = [
-        {"role": "system", "content": hotel_system_prompt}
-    ]
+    messages = [{"role": "system", "content": hotel_system_prompt}]
 
     print("--- HOTEL AURORA RECEPCJA (wersja z Groq/LLaMA + GŁOS) ---")
     print(f"(Data systemowa: {date.today()})")
@@ -429,7 +489,9 @@ def reception():
         print("\n❌ TRYB GŁOSOWY NIEDOSTĘPNY - aplikacja wymaga rozpoznawania mowy.")
         print("   Zainstaluj: pip install pyaudio google-cloud-speech")
         return
-    print("🎤 TRYB GŁOSOWY: Mów do mikrofonu. Nagrywanie zakończy się automatycznie po 3 sek. ciszy.")
+    print(
+        "🎤 TRYB GŁOSOWY: Mów do mikrofonu. Nagrywanie zakończy się automatycznie po 3 sek. ciszy."
+    )
     print("-" * 60)
 
     try:
@@ -460,7 +522,7 @@ def reception():
                     messages=messages,
                     tools=hotel_tools,
                     tool_choice="auto",
-                    temperature=0.1  # Niska temperatura dla spójności
+                    temperature=0.1,  # Niska temperatura dla spójności
                 )
 
                 response_message = response.choices[0].message
@@ -469,10 +531,9 @@ def reception():
                 # Jeśli model nie chce wywoływać narzędzi - wychodzimy z pętli
                 if not tool_calls:
                     # Dodajemy odpowiedź asystenta do historii
-                    messages.append({
-                        "role": "assistant",
-                        "content": response_message.content
-                    })
+                    messages.append(
+                        {"role": "assistant", "content": response_message.content}
+                    )
                     print(f"RECEPCJONISTA: {response_message.content}")
                     break
 
@@ -485,24 +546,30 @@ def reception():
                     function_name = tool_call.function.name
                     function_args = json.loads(tool_call.function.arguments)
 
-                    print(f"[DEBUG] Wywołuję narzędzie: {function_name}({function_args})")
+                    print(
+                        f"[DEBUG] Wywołuję narzędzie: {function_name}({function_args})"
+                    )
 
                     # Wykonaj funkcję
                     function_to_call = available_functions.get(function_name)
                     if function_to_call:
                         function_response = function_to_call(**function_args)
                     else:
-                        function_response = json.dumps({"error": f"Nieznane narzędzie: {function_name}"})
+                        function_response = json.dumps(
+                            {"error": f"Nieznane narzędzie: {function_name}"}
+                        )
 
                     print(f"[DEBUG] Wynik narzędzia: {function_response}")
 
                     # Dodajemy wynik narzędzia do historii
-                    messages.append({
-                        "role": "tool",
-                        "tool_call_id": tool_call.id,
-                        "name": function_name,
-                        "content": function_response
-                    })
+                    messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "name": function_name,
+                            "content": function_response,
+                        }
+                    )
 
             # Zabezpieczenie przed nieskończoną pętlą
             if iteration >= max_iterations:
@@ -514,6 +581,7 @@ def reception():
     except Exception as e:
         print(f"\nWystąpił błąd: {e}")
         import traceback
+
         traceback.print_exc()
 
 

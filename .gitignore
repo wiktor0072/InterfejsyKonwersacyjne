@@ -43,3 +43,5 @@ Thumbs.db
 
 # Logi
 *.log
+
+.ruff_cache/
