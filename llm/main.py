@@ -6,6 +6,7 @@ from datetime import date, timedelta
 import os
 import threading
 import io
+from typing import Optional, List, Dict, Any, Union
 
 # Speech recognition imports
 try:
@@ -15,7 +16,23 @@ try:
     SPEECH_AVAILABLE = True
 except ImportError:
     SPEECH_AVAILABLE = False
+    pyaudio = None
+    speech = None
     print("[UWAGA] Brak pyaudio lub google-cloud-speech. Tryb głosowy niedostępny.")
+
+# Text-to-Speech imports
+try:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from tts.elevenlabs_tts import get_tts, ElevenLabsTTS, play_filler, get_filler_files
+
+    TTS_AVAILABLE = True
+except ImportError as e:
+    TTS_AVAILABLE = False
+    get_tts = None
+    ElevenLabsTTS = None
+    play_filler = None
+    get_filler_files = None
+    print(f"[UWAGA] Brak modułu TTS ElevenLabs: {e}. Odpowiedzi będą tylko tekstowe.")
 
 # --- KONFIGURACJA HOTELU ---
 # Ustalamy absolutną ścieżkę do bazy danych, aby plik zawsze tworzył się w folderze llm/
@@ -44,7 +61,8 @@ def init_db():
     cursor.execute("DROP TABLE IF EXISTS reservations")
 
     # Tworzymy tabelę od nowa z poprawnym schematem
-    cursor.execute("""
+    cursor.execute(
+        """
                    CREATE TABLE reservations
                    (
                        id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,7 +71,8 @@ def init_db():
                        start_date  TEXT,
                        end_date    TEXT
                    )
-                   """)
+                   """
+    )
 
     # --- SCENARIUSZ UŻYTKOWNIKA ---
     # Pokoje 101, 102 i 201 są zajęte od dzisiaj przez tydzień.
@@ -92,7 +111,7 @@ def init_db():
 # --- 2. FUNKCJE (NARZĘDZIA) ---
 
 
-def check_availability(query_date: str, room_type: int = None) -> str:
+def check_availability(query_date: str, room_type: Optional[int] = None) -> str:
     """Sprawdza dostępność pokoi w podanym dniu."""
     with sqlite3.connect(DB_PATH) as conn:
         cursor = conn.cursor()
@@ -334,11 +353,11 @@ ZASADY ODPOWIEDZI:
 # --- 4. ROZPOZNAWANIE MOWY ---
 
 
-def get_voice_input() -> str:
+def get_voice_input() -> Optional[str]:
     """Nagrywa głos użytkownika i zwraca rozpoznany tekst.
     Nagrywanie kończy się automatycznie po 3 sekundach ciszy.
     """
-    if not SPEECH_AVAILABLE:
+    if not SPEECH_AVAILABLE or speech is None or pyaudio is None:
         print("\n❌ TRYB GŁOSOWY NIEDOSTĘPNY")
         print("   Brak wymaganych bibliotek: pyaudio i/lub google-cloud-speech")
         print("   Zainstaluj je poleceniem: pip install pyaudio google-cloud-speech")
@@ -468,23 +487,33 @@ def get_voice_input() -> str:
 # --- 5. GŁÓWNA PĘTLA APLIKACJI ---
 
 
+def speak_response(text: str) -> None:
+    print(f"RECEPCJONISTA: {text}")
+    if TTS_AVAILABLE and text and get_tts:
+        try:
+            tts = get_tts()
+            if tts:
+                tts.speak(text)
+        except Exception as e:
+            print(f"[TTS] Błąd syntezy mowy: {e}")
+
+
 def reception():
-    # Inicjalizacja bazy przy starcie
     init_db()
-
-    # Inicjalizacja klienta Groq
     client = Groq()
-
-    # Model Groq
     MODEL = "llama-3.3-70b-versatile"
+    messages: List[Any] = [{"role": "system", "content": hotel_system_prompt}]
 
-    # Historia konwersacji
-    messages = [{"role": "system", "content": hotel_system_prompt}]
-
-    print("--- HOTEL AURORA RECEPCJA (wersja z Groq/LLaMA + GŁOS) ---")
+    print("--- HOTEL AURORA RECEPCJA (wersja z Groq/LLaMA + GŁOS + TTS) ---")
     print(f"(Data systemowa: {date.today()})")
     print(f"(Model: {MODEL})")
     print("(Oferta: 4 pokoje 2-os. [101-104], 2 pokoje 4-os. [201-202])")
+
+    if TTS_AVAILABLE:
+        print("🔊 TTS: ElevenLabs aktywny")
+    else:
+        print("🔇 TTS: Niedostępny (tylko tekst)")
+
     if not SPEECH_AVAILABLE:
         print("\n❌ TRYB GŁOSOWY NIEDOSTĘPNY - aplikacja wymaga rozpoznawania mowy.")
         print("   Zainstaluj: pip install pyaudio google-cloud-speech")
@@ -509,6 +538,12 @@ def reception():
             # Dodajemy wiadomość użytkownika do historii
             messages.append({"role": "user", "content": user_input})
 
+            if play_filler and get_filler_files and get_filler_files():
+                filler_thread = threading.Thread(target=play_filler, daemon=True)
+                filler_thread.start()
+            else:
+                filler_thread = None
+
             # Pętla agentic - kontynuujemy dopóki model chce wywoływać narzędzia
             max_iterations = 5
             iteration = 0
@@ -519,8 +554,8 @@ def reception():
                 # Wywołanie API Groq
                 response = client.chat.completions.create(
                     model=MODEL,
-                    messages=messages,
-                    tools=hotel_tools,
+                    messages=messages,  # type: ignore
+                    tools=hotel_tools,  # type: ignore
                     tool_choice="auto",
                     temperature=0.1,  # Niska temperatura dla spójności
                 )
@@ -530,16 +565,15 @@ def reception():
 
                 # Jeśli model nie chce wywoływać narzędzi - wychodzimy z pętli
                 if not tool_calls:
-                    # Dodajemy odpowiedź asystenta do historii
                     messages.append(
-                        {"role": "assistant", "content": response_message.content}
+                        {"role": "assistant", "content": response_message.content or ""}
                     )
-                    print(f"RECEPCJONISTA: {response_message.content}")
+                    speak_response(response_message.content or "")
                     break
 
                 # Model chce wywołać narzędzia
                 # Dodajemy odpowiedź asystenta (z tool_calls) do historii
-                messages.append(response_message)
+                messages.append(response_message.model_dump())
 
                 # Wykonujemy każde wywołane narzędzie
                 for tool_call in tool_calls:

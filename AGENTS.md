@@ -9,6 +9,7 @@ It integrates Speech-to-Text (STT), Sentiment Analysis, Large Language Models (L
 - **Core Logic**: `llm/main.py` (Orchestrator, State, Tools)
 - **STT**: Google Cloud Speech (`google-cloud-speech`), Vosk (Legacy)
 - **LLM**: Groq (Llama 3.3) - *Note: Plan mentions Gemini, currently implementation uses Groq.*
+- **TTS**: ElevenLabs (`elevenlabs`) - `tts/elevenlabs_tts.py`
 - **Sentiment**: VoiceLab/herbert-base-cased-sentiment (`transformers`, `torch`)
 - **Audio I/O**: `pyaudio`
 - **Database**: `sqlite3` (Hotel inventory)
@@ -18,7 +19,7 @@ It integrates Speech-to-Text (STT), Sentiment Analysis, Large Language Models (L
 ### Setup
 No `requirements.txt` currently exists. Common dependencies observed:
 ```bash
-pip install torch transformers groq google-cloud-speech pyaudio numpy
+pip install torch transformers groq google-cloud-speech pyaudio numpy elevenlabs simpleaudio
 ```
 
 ### Running Modules
@@ -33,6 +34,11 @@ pip install torch transformers groq google-cloud-speech pyaudio numpy
 - **Voice Recognition Test**:
   ```bash
   python speech3.py
+  ```
+- **ElevenLabs TTS Test**:
+  ```bash
+  export ELEVENLABS_API_KEY='your_api_key'
+  python tts/test_elevenlabs.py
   ```
 
 ### Testing
@@ -60,8 +66,9 @@ pip install torch transformers groq google-cloud-speech pyaudio numpy
 
 ### File Structure
 - `llm/`: Core logic, database, orchestrator.
+- `tts/`: Text-to-Speech (ElevenLabs integration).
 - `Emocje/`: Sentiment analysis experiments.
-- `Mowa/`: TTS/STT experiments.
+- `Mowa/`: TTS/STT experiments (legacy CoquiTTS).
 - `PierwszeEtapy/`: Legacy/Prototype code.
 
 ## 4. Project Roadmap (Sprints)
@@ -78,8 +85,11 @@ pip install torch transformers groq google-cloud-speech pyaudio numpy
 - [ ] **Konfiguracja Gemini (LLM)**
     - *Status: Obecnie zaimplementowano Groq/Llama-3*
     - Testy: tekst → odpowiedź
-- [ ] **Konfiguracja ElevenLabs (TTS)**
+- [x] **Konfiguracja ElevenLabs (TTS)**
     - Wybór głosu, test opóźnień
+    - Moduł: `tts/elevenlabs_tts.py`
+    - Rekomendowane głosy PL: George, Charlotte, Aria
+    - Modele: eleven_flash_v2_5 (najszybszy), eleven_multilingual_v2 (najlepsza jakość)
 - [ ] **Repo + struktura**
     - `stt/`, `sentiment/`, `llm/`, `tts/`
 
