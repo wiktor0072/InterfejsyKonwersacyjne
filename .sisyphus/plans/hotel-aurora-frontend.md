@@ -548,7 +548,7 @@ Każde zadanie zawiera procedury weryfikacji manualnej:
 
 ---
 
-- [ ] 11. Nagrywanie audio z mikrofonu
+- [x] 11. Nagrywanie audio z mikrofonu
 
   **What to do**:
   - Użyć MediaRecorder API do nagrywania WebM/Opus
