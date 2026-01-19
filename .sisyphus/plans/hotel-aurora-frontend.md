@@ -830,7 +830,7 @@ Każde zadanie zawiera procedury weryfikacji manualnej:
 
 ---
 
-- [ ] 19. Final Manual QA
+- [x] 19. Final Manual QA
 
   **What to do**:
   - Pełny test flow: nagranie → transkrypcja → odpowiedź → audio
