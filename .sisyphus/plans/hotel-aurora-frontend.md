@@ -213,7 +213,7 @@ Każde zadanie zawiera procedury weryfikacji manualnej:
 
 ---
 
-- [ ] 2. Utworzenie FastAPI z WebSocket endpoint
+- [x] 2. Utworzenie FastAPI z WebSocket endpoint
 
   **What to do**:
   - Utworzyć `backend/main.py` z podstawową aplikacją FastAPI
