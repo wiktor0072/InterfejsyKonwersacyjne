@@ -473,7 +473,7 @@ Każde zadanie zawiera procedury weryfikacji manualnej:
 
 ---
 
-- [ ] 9. Komponent Chat UI
+- [x] 9. Komponent Chat UI
 
   **What to do**:
   - Utworzyć komponent ChatHistory z listą wiadomości
