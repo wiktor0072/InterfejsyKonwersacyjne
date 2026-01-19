@@ -659,7 +659,7 @@ Każde zadanie zawiera procedury weryfikacji manualnej:
 
 ---
 
-- [ ] 14. Wizualizacja głosu użytkownika (particles)
+- [x] 14. Wizualizacja głosu użytkownika (particles)
 
   **What to do**:
   - Użyć Web Audio API AnalyserNode na mikrofonie
@@ -694,7 +694,7 @@ Każde zadanie zawiera procedury weryfikacji manualnej:
 
 ---
 
-- [ ] 15. Wizualizacja głosu asystenta (particles)
+- [x] 15. Wizualizacja głosu asystenta (particles)
 
   **What to do**:
   - Podłączyć AnalyserNode do audio TTS playback
