@@ -437,7 +437,7 @@ Każde zadanie zawiera procedury weryfikacji manualnej:
 
 ---
 
-- [ ] 8. Animowane tło z mesh gradient
+- [x] 8. Animowane tło z mesh gradient
 
   **What to do**:
   - Zaimplementować animowany mesh gradient jako tło

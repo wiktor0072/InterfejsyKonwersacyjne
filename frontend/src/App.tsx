@@ -1,7 +1,9 @@
+import { MeshGradientBackground } from './components/MeshGradientBackground'
+
 function App() {
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-900/20 via-transparent to-transparent" />
+    <div className="relative min-h-screen">
+      <MeshGradientBackground />
       
       <div className="relative z-10 flex flex-col h-screen">
         <header className="flex items-center justify-center py-6">
