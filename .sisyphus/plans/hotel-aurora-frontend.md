@@ -622,7 +622,7 @@ Każde zadanie zawiera procedury weryfikacji manualnej:
 
 ### Faza 3: Wizualizacja Audio
 
-- [ ] 13. Podstawowa konfiguracja tsParticles
+- [x] 13. Podstawowa konfiguracja tsParticles
 
   **What to do**:
   - Skonfigurować tsParticles z preset "particles"
