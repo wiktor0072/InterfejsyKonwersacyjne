@@ -403,7 +403,7 @@ Każde zadanie zawiera procedury weryfikacji manualnej:
 
 ### Faza 2: Frontend Core
 
-- [ ] 7. Inicjalizacja projektu React
+- [x] 7. Inicjalizacja projektu React
 
   **What to do**:
   - `npm create vite@latest frontend -- --template react-ts`
