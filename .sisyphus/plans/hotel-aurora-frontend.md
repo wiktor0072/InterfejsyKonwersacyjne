@@ -63,11 +63,11 @@ Stworzyć nowoczesny frontend React z wizualizacją głosu (tsParticles) i animo
    - Odtwarzanie audio TTS
 
 ### Definition of Done
-- [ ] `npm run dev` → frontend działa na `localhost:5173`
-- [ ] `uvicorn backend.main:app` → API działa na `localhost:8000`
-- [ ] Użytkownik może nagrać głos → widzi transkrypcję → słyszy odpowiedź TTS
-- [ ] Particles reagują na oba głosy (user + asystent)
-- [ ] Historia czatu zapisuje się w bazie i przetrwa restart
+- [x] `npm run dev` → frontend działa na `localhost:5173`
+- [x] `uvicorn backend.main:app` → API działa na `localhost:8000`
+- [x] Użytkownik może nagrać głos → widzi transkrypcję → słyszy odpowiedź TTS
+- [x] Particles reagują na oba głosy (user + asystent)
+- [x] Historia czatu zapisuje się w bazie i przetrwa restart
 
 ### Must Have
 - Dark mode jako jedyny tryb
@@ -922,9 +922,9 @@ sqlite3 llm/hotel_aurora.db "SELECT COUNT(*) FROM conversations"  # → liczba w
 ```
 
 ### Final Checklist
-- [ ] **Must Have** - wszystkie 10 pozycji zaimplementowane
-- [ ] **Must NOT Have** - żaden z 11 wykluczonych elementów nie został dodany
-- [ ] **Happy Path** - pełna rozmowa głosowa działa end-to-end
-- [ ] **Edge Cases** - disconnect, TTS fail, empty audio obsłużone gracefully
-- [ ] **Performance** - 60fps, latency < 5s
-- [ ] **Persistence** - historia sesji przetrwa restart serwera
+- [x] **Must Have** - wszystkie 10 pozycji zaimplementowane
+- [x] **Must NOT Have** - żaden z 11 wykluczonych elementów nie został dodany
+- [x] **Happy Path** - pełna rozmowa głosowa działa end-to-end
+- [x] **Edge Cases** - disconnect, TTS fail, empty audio obsłużone gracefully
+- [x] **Performance** - 60fps, latency < 5s
+- [x] **Persistence** - historia sesji przetrwa restart serwera
