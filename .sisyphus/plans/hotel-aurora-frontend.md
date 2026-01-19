@@ -728,7 +728,7 @@ Każde zadanie zawiera procedury weryfikacji manualnej:
 
 ---
 
-- [ ] 16. UI push-to-talk i ciągłe słuchanie
+- [x] 16. UI push-to-talk i ciągłe słuchanie
 
   **What to do**:
   - Przycisk push-to-talk (przytrzymaj = nagrywa)
