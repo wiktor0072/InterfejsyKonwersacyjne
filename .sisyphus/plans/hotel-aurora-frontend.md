@@ -798,7 +798,7 @@ Każde zadanie zawiera procedury weryfikacji manualnej:
 
 ---
 
-- [ ] 18. Loading states i UX polish
+- [x] 18. Loading states i UX polish
 
   **What to do**:
   - Wskaźnik "przetwarzanie" gdy LLM generuje
