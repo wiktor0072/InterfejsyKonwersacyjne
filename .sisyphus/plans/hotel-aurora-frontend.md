@@ -584,7 +584,7 @@ Każde zadanie zawiera procedury weryfikacji manualnej:
 
 ---
 
-- [ ] 12. Odtwarzanie audio TTS
+- [x] 12. Odtwarzanie audio TTS
 
   **What to do**:
   - Odbierać MP3 z backendu (jako blob/base64)
