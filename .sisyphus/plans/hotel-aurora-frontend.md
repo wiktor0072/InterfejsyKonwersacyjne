@@ -248,7 +248,7 @@ Każde zadanie zawiera procedury weryfikacji manualnej:
 
 ---
 
-- [ ] 3. Integracja logiki z llm/main.py
+- [x] 3. Integracja logiki z llm/main.py
 
   **What to do**:
   - Zaimportować funkcje z `llm/main.py`: `hotel_tools`, obsługę Groq
@@ -288,7 +288,7 @@ Każde zadanie zawiera procedury weryfikacji manualnej:
 
 ---
 
-- [ ] 4. Obsługa audio - transcoding WebM → LINEAR16
+- [x] 4. Obsługa audio - transcoding WebM → LINEAR16
 
   **What to do**:
   - Dodać endpoint do przyjmowania audio (WebM/Opus z przeglądarki)
@@ -329,7 +329,7 @@ Każde zadanie zawiera procedury weryfikacji manualnej:
 
 ---
 
-- [ ] 5. Integracja modułu sentymentu
+- [x] 5. Integracja modułu sentymentu
 
   **What to do**:
   - Zaimportować model z `Emocje/main.py`
@@ -365,7 +365,7 @@ Każde zadanie zawiera procedury weryfikacji manualnej:
 
 ---
 
-- [ ] 6. Trwałe sesje rozmów w SQLite
+- [x] 6. Trwałe sesje rozmów w SQLite
 
   **What to do**:
   - Utworzyć tabelę `conversations` w SQLite
