@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
 
 export interface AudioAnalyserData {
   frequency: Uint8Array
@@ -174,11 +174,12 @@ export function useAudioAnalyser(): UseAudioAnalyserReturn {
     }
   }, [cleanup])
 
-  return {
+  // Memoize return value to prevent infinite render loops when used in useEffect dependencies
+  return useMemo(() => ({
     analyserData,
     connectStream,
     connectAudioElement,
     disconnect,
     isConnected,
-  }
+  }), [analyserData, connectStream, connectAudioElement, disconnect, isConnected])
 }

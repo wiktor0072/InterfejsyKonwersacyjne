@@ -106,13 +106,11 @@ function App() {
         setActiveAudioSource(null)
       }
     }
-  }, [audioStream, recordingStatus, userAnalyser, playbackStatus])
+  }, [audioStream, recordingStatus, playbackStatus, userAnalyser.connectStream, userAnalyser.disconnect])
 
   // Connect TTS audio to analyser when playing
   useEffect(() => {
     if (audioElement && playbackStatus === 'playing') {
-      // Note: We can't use connectAudioElement here because the audio 
-      // element source can only be connected once. Instead, we track the state.
       setActiveAudioSource('assistant')
     } else if (playbackStatus !== 'playing') {
       if (recordingStatus !== 'recording') {
