@@ -766,7 +766,7 @@ Każde zadanie zawiera procedury weryfikacji manualnej:
 
 ### Faza 4: Polish & QA
 
-- [ ] 17. Error handling i fallback do tekstu
+- [x] 17. Error handling i fallback do tekstu
 
   **What to do**:
   - Obsłużyć błędy: WebSocket disconnect, STT fail, TTS fail
