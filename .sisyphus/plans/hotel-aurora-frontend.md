@@ -512,7 +512,7 @@ Każde zadanie zawiera procedury weryfikacji manualnej:
 
 ---
 
-- [ ] 10. WebSocket client
+- [x] 10. WebSocket client
 
   **What to do**:
   - Utworzyć hook `useWebSocket` do połączenia z backendem
