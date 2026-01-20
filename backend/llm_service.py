@@ -1,6 +1,7 @@
 import sys
 import os
 import json
+import re
 from typing import Any
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -21,6 +22,16 @@ except ImportError:
     Groq = None
 
 
+def clean_response_text(text: str) -> str:
+    """Remove hallucinated function calls from response text."""
+    text = re.sub(r"<function=\w+>.*?</function>", "", text, flags=re.DOTALL)
+    text = re.sub(
+        r'\{["\']?function["\']?\s*:\s*["\']?\w+["\']?.*?\}', "", text, flags=re.DOTALL
+    )
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
 class LLMService:
     def __init__(self):
         if not GROQ_AVAILABLE:
@@ -30,9 +41,16 @@ class LLMService:
         init_db()
 
     async def process_message(
-        self, user_message: str, messages: list[dict[str, Any]]
+        self,
+        user_message: str,
+        messages: list[dict[str, Any]],
+        sentiment: str | None = None,
+        score: float = 0.0,
     ) -> tuple[str, list[dict[str, Any]]]:
-        messages.append({"role": "user", "content": user_message})
+        content = user_message
+        if sentiment:
+            content += f" [Detected Sentiment: {sentiment} ({score:.2f})]"
+        messages.append({"role": "user", "content": content})
 
         max_iterations = 5
         iteration = 0
@@ -57,7 +75,22 @@ class LLMService:
                 messages.append({"role": "assistant", "content": final_response})
                 break
 
-            messages.append(response_message.model_dump())
+            assistant_message: dict[str, Any] = {
+                "role": "assistant",
+                "content": response_message.content,
+                "tool_calls": [
+                    {
+                        "id": tc.id,
+                        "type": "function",
+                        "function": {
+                            "name": tc.function.name,
+                            "arguments": tc.function.arguments,
+                        },
+                    }
+                    for tc in tool_calls
+                ],
+            }
+            messages.append(assistant_message)
 
             for tool_call in tool_calls:
                 function_name = tool_call.function.name
@@ -80,7 +113,7 @@ class LLMService:
                     }
                 )
 
-        return final_response, messages
+        return clean_response_text(final_response), messages
 
     def create_initial_messages(self) -> list[dict[str, Any]]:
         return [{"role": "system", "content": hotel_system_prompt}]

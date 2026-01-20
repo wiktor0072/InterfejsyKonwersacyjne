@@ -68,7 +68,7 @@ export function SpeakingIndicator({ isVisible }: SpeakingIndicatorProps) {
   if (!isVisible) return null
 
   return (
-    <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-30">
+    <div className="fixed bottom-52 left-1/2 -translate-x-1/2 z-30">
       <div className="bg-purple-500/20 border border-purple-500/30 rounded-full px-4 py-2 flex items-center gap-2 animate-fadeIn">
         {/* Sound wave animation */}
         <span className="flex gap-0.5 items-center h-4">
@@ -99,7 +99,7 @@ export function ListeningIndicator({ isVisible }: ListeningIndicatorProps) {
   if (!isVisible) return null
 
   return (
-    <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-30">
+    <div className="fixed bottom-52 left-1/2 -translate-x-1/2 z-30">
       <div className="bg-cyan-500/20 border border-cyan-500/30 rounded-full px-4 py-2 flex items-center gap-2 animate-pulse">
         {/* Recording dot */}
         <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />

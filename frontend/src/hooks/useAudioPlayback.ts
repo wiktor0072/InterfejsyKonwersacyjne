@@ -8,6 +8,8 @@ export interface UseAudioPlaybackReturn {
   playbackStatus: PlaybackStatus
   errorMessage: string | null
   audioElement: HTMLAudioElement | null
+  audioContext: AudioContext | null
+  analyserNode: AnalyserNode | null
 }
 
 // ===== Main Hook =====
@@ -16,8 +18,13 @@ export function useAudioPlayback(): UseAudioPlaybackReturn {
   const [playbackStatus, setPlaybackStatus] = useState<PlaybackStatus>('idle')
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null)
+  const [audioContext, setAudioContext] = useState<AudioContext | null>(null)
+  const [analyserNode, setAnalyserNode] = useState<AnalyserNode | null>(null)
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
+  const analyserRef = useRef<AnalyserNode | null>(null)
+  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null)
   const audioQueueRef = useRef<string[]>([])
   const isPlayingRef = useRef(false)
 
@@ -48,8 +55,37 @@ export function useAudioPlayback(): UseAudioPlaybackReturn {
 
       // Create and configure audio element
       const audio = new Audio(audioUrl)
+      // Prevent autoplay issues - set crossOrigin
+      audio.crossOrigin = 'anonymous'
       audioRef.current = audio
       setAudioElement(audio)
+
+      // Create AudioContext and AnalyserNode BEFORE playing
+      // This is required for Web Audio API to work with MediaElementSource
+      if (!audioContextRef.current) {
+        audioContextRef.current = new AudioContext()
+        console.log('[AudioPlayback] AudioContext utworzony')
+      }
+      
+      const ctx = audioContextRef.current
+      if (ctx.state === 'suspended') {
+        ctx.resume()
+      }
+
+      // Create new analyser for each audio
+      const analyser = ctx.createAnalyser()
+      analyser.fftSize = 256
+      analyser.smoothingTimeConstant = 0.8
+      analyserRef.current = analyser
+      setAudioContext(ctx)
+      setAnalyserNode(analyser)
+
+      // Create MediaElementSource and connect BEFORE playing
+      const source = ctx.createMediaElementSource(audio)
+      source.connect(analyser)
+      analyser.connect(ctx.destination)
+      sourceRef.current = source
+      console.log('[AudioPlayback] Audio routing: source -> analyser -> destination')
 
       audio.oncanplaythrough = () => {
         console.log('[AudioPlayback] Audio gotowe do odtwarzania')
@@ -66,9 +102,16 @@ export function useAudioPlayback(): UseAudioPlaybackReturn {
       audio.onended = () => {
         console.log('[AudioPlayback] Audio zakończone')
         URL.revokeObjectURL(audioUrl)
+        // Cleanup source
+        if (sourceRef.current) {
+          sourceRef.current.disconnect()
+          sourceRef.current = null
+        }
         setPlaybackStatus('idle')
         setAudioElement(null)
+        setAnalyserNode(null)
         audioRef.current = null
+        analyserRef.current = null
         isPlayingRef.current = false
         processQueue() // Play next in queue
       }
@@ -76,10 +119,16 @@ export function useAudioPlayback(): UseAudioPlaybackReturn {
       audio.onerror = (event) => {
         console.error('[AudioPlayback] Błąd audio:', event)
         URL.revokeObjectURL(audioUrl)
+        if (sourceRef.current) {
+          sourceRef.current.disconnect()
+          sourceRef.current = null
+        }
         setPlaybackStatus('error')
         setErrorMessage('Błąd ładowania audio')
         setAudioElement(null)
+        setAnalyserNode(null)
         audioRef.current = null
+        analyserRef.current = null
         isPlayingRef.current = false
         processQueue()
       }
@@ -104,10 +153,13 @@ export function useAudioPlayback(): UseAudioPlaybackReturn {
   const stopAudio = useCallback(() => {
     console.log('[AudioPlayback] Zatrzymywanie audio')
     
-    // Clear queue
     audioQueueRef.current = []
     
-    // Stop current audio
+    if (sourceRef.current) {
+      sourceRef.current.disconnect()
+      sourceRef.current = null
+    }
+    
     if (audioRef.current) {
       audioRef.current.pause()
       audioRef.current.currentTime = 0
@@ -116,15 +168,25 @@ export function useAudioPlayback(): UseAudioPlaybackReturn {
     
     setPlaybackStatus('idle')
     setAudioElement(null)
+    setAnalyserNode(null)
+    analyserRef.current = null
     isPlayingRef.current = false
   }, [])
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      if (sourceRef.current) {
+        sourceRef.current.disconnect()
+        sourceRef.current = null
+      }
       if (audioRef.current) {
         audioRef.current.pause()
         audioRef.current = null
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close()
+        audioContextRef.current = null
       }
       audioQueueRef.current = []
     }
@@ -136,5 +198,7 @@ export function useAudioPlayback(): UseAudioPlaybackReturn {
     playbackStatus,
     errorMessage,
     audioElement,
+    audioContext,
+    analyserNode,
   }
 }

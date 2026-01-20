@@ -1,8 +1,9 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { MeshGradientBackground } from './components/MeshGradientBackground'
 import { ParticlesBackground } from './components/ParticlesBackground'
 import { ChatHistory } from './components/ChatHistory'
 import { VoiceControls } from './components/VoiceControls'
+import { ChatInput } from './components/ChatInput'
 import { ToastContainer, useToast } from './components/Toast'
 import { ThinkingIndicator, SpeakingIndicator, ListeningIndicator } from './components/TypingIndicator'
 import { useWebSocket } from './hooks/useWebSocket'
@@ -12,18 +13,23 @@ import { useAudioAnalyser } from './hooks/useAudioAnalyser'
 import type { Message } from './components/MessageBubble'
 import type { IncomingMessage } from './hooks/useWebSocket'
 
+const VOLUME_SMOOTHING = 0.3
+
 function App() {
   const [messages, setMessages] = useState<Message[]>([])
   const [isProcessing, setIsProcessing] = useState(false)
   const [activeAudioSource, setActiveAudioSource] = useState<'user' | 'assistant' | null>(null)
+  const [assistantIntensity, setAssistantIntensity] = useState(0)
+
+  const assistantAnimationRef = useRef<number | null>(null)
+  const assistantPrevIntensityRef = useRef(0)
 
   // Hooks
   const { toasts, addToast, removeToast } = useToast()
-  const { sendAudio, lastMessage, connectionStatus } = useWebSocket()
+  const { sendAudio, sendMessage, lastMessage, connectionStatus } = useWebSocket()
   const { startRecording, stopRecording, recordingStatus, errorMessage: recorderError, audioStream } = useAudioRecorder()
-  const { playAudio, playbackStatus, audioElement } = useAudioPlayback()
+  const { playAudio, playbackStatus, analyserNode } = useAudioPlayback()
   const userAnalyser = useAudioAnalyser()
-  const assistantAnalyser = useAudioAnalyser()
 
   // Add message to chat
   const addMessage = useCallback((role: 'user' | 'assistant', content: string) => {
@@ -108,16 +114,51 @@ function App() {
     }
   }, [audioStream, recordingStatus, playbackStatus, userAnalyser.connectStream, userAnalyser.disconnect])
 
-  // Connect TTS audio to analyser when playing
+  // Analyze TTS audio when playing using analyserNode from useAudioPlayback
   useEffect(() => {
-    if (audioElement && playbackStatus === 'playing') {
+    if (analyserNode && playbackStatus === 'playing') {
       setActiveAudioSource('assistant')
+      
+      const dataArray = new Uint8Array(analyserNode.frequencyBinCount)
+      
+      const analyze = () => {
+        analyserNode.getByteFrequencyData(dataArray)
+        
+        let sum = 0
+        for (let i = 0; i < dataArray.length; i++) {
+          sum += dataArray[i]
+        }
+        const avgVolume = sum / dataArray.length / 255
+        
+        const targetIntensity = Math.min(avgVolume * 2, 1)
+        const smoothedIntensity = assistantPrevIntensityRef.current + 
+          (targetIntensity - assistantPrevIntensityRef.current) * VOLUME_SMOOTHING
+        assistantPrevIntensityRef.current = smoothedIntensity
+        
+        setAssistantIntensity(smoothedIntensity)
+        assistantAnimationRef.current = requestAnimationFrame(analyze)
+      }
+      
+      analyze()
+      
+      return () => {
+        if (assistantAnimationRef.current) {
+          cancelAnimationFrame(assistantAnimationRef.current)
+          assistantAnimationRef.current = null
+        }
+      }
     } else if (playbackStatus !== 'playing') {
+      if (assistantAnimationRef.current) {
+        cancelAnimationFrame(assistantAnimationRef.current)
+        assistantAnimationRef.current = null
+      }
+      setAssistantIntensity(0)
+      assistantPrevIntensityRef.current = 0
       if (recordingStatus !== 'recording') {
         setActiveAudioSource(null)
       }
     }
-  }, [audioElement, playbackStatus, recordingStatus])
+  }, [analyserNode, playbackStatus, recordingStatus])
 
   // Handle recording start/stop
   const handleStartRecording = useCallback(async () => {
@@ -137,11 +178,24 @@ function App() {
     }
   }, [stopRecording, sendAudio])
 
+  const handleSendMessage = useCallback((text: string) => {
+    if (connectionStatus !== 'connected') {
+      addToast('warning', 'Poczekaj na połączenie z serwerem')
+      return
+    }
+    
+    // Add user message immediately
+    addMessage('user', text)
+    setIsProcessing(true)
+    
+    sendMessage({ type: 'text', content: text })
+  }, [connectionStatus, sendMessage, addMessage, addToast])
+
   // Calculate audio intensity for particles
   const audioIntensity = activeAudioSource === 'user' 
     ? userAnalyser.analyserData.intensity 
     : activeAudioSource === 'assistant'
-      ? assistantAnalyser.analyserData.intensity
+      ? assistantIntensity
       : 0
 
   const isRecording = recordingStatus === 'recording'
@@ -188,7 +242,7 @@ function App() {
         </header>
 
         {/* Chat area */}
-        <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full">
+        <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full overflow-hidden">
           <ChatHistory messages={messages} />
           
           {/* Thinking indicator */}
@@ -198,8 +252,8 @@ function App() {
             </div>
           )}
           
-          {/* Voice controls */}
-          <div className="p-6">
+          {/* Voice controls and Chat Input */}
+          <div className="p-6 flex flex-col gap-4">
             <VoiceControls
               onStartRecording={handleStartRecording}
               onStopRecording={handleStopRecording}
@@ -207,6 +261,11 @@ function App() {
               isProcessing={isProcessing}
               isConnected={isConnected}
               errorMessage={recorderError}
+            />
+            
+            <ChatInput 
+              onSendMessage={handleSendMessage}
+              disabled={!isConnected || isProcessing}
             />
           </div>
         </div>

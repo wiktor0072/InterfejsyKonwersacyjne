@@ -35,8 +35,13 @@ export function VoiceControls({
 
   // Handle keyboard (Space key)
   useEffect(() => {
+    const isInputFocused = () => {
+      const tag = document.activeElement?.tagName.toLowerCase()
+      return tag === 'input' || tag === 'textarea' || document.activeElement?.getAttribute('contenteditable') === 'true'
+    }
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === 'Space' && !e.repeat && !continuousListening && isConnected && !isProcessing) {
+      if (e.code === 'Space' && !e.repeat && !continuousListening && isConnected && !isProcessing && !isInputFocused()) {
         e.preventDefault()
         setIsPressing(true)
         onStartRecording()
